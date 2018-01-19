@@ -1,0 +1,28 @@
+{
+  "name": "net-upw-gate",
+  "version": "0.0.0",
+  "description": "bike shed auth ",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "tape": "^4.8.0"
+  },
+  "scripts": {
+    "test": "tape test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chiefbiiko/net-upw-gate.git"
+  },
+  "keywords": [
+    "net",
+    "auth",
+    "gate"
+  ],
+  "author": "Noah Anabiik Schwarz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/chiefbiiko/net-upw-gate/issues"
+  },
+  "homepage": "https://github.com/chiefbiiko/net-upw-gate#readme"
+}
