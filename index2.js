@@ -52,6 +52,7 @@ NetGate.prototype.protect = function protect (socket) {
 
     var suspect = socket.read(64)  // expecting: sha512(user + ':' + password)
 
+    if (!suspect) return
     if (!this._isValid(suspect)) {
       if (this._invalids.hasOwnProperty(loc)) this._invalids[loc]++
       else this._invalids[loc] = 1

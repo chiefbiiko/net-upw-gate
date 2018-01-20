@@ -19,12 +19,12 @@ tape('auth', function (t) {
   var cred = sha512('chiefbiiko:fraud')
 
   var gate = NetGate([ cred ], onauth)
-  var server = net.createServer(gate.protect)
+  var server = net.createServer(gate.protect.bind(gate))
 
-  server.listen(10000, 'localhost')
-
-  var client = net.connect(10000, 'localhost', function () {
-    client.write(cred)
+  server.listen(10000, 'localhost', function () {
+    var client = net.connect(10000, 'localhost', function () {
+      client.write(cred)
+    })
   })
 
 })
