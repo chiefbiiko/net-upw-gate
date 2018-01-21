@@ -1,5 +1,8 @@
 var fs = require('fs')
 
+// forget the type def, just make it a closure factory
+// and no public blacklisting either that is controlled at init
+
 function isString (x) {
   return typeof x === 'string' || x instanceof String
 }
