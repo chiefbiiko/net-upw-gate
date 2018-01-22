@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "description": "bike shed auth ",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "elliptic": "^6.4.0",
+    "pumpify": "^1.4.0"
+  },
   "devDependencies": {
     "tape": "^4.8.0"
   },

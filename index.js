@@ -1,4 +1,7 @@
-var fs = require('fs')
+/*
+  TODO:
+    + encrypt the connection using ecdhe before exchanging any credentials !!!
+*/
 
 function isString (x) {
   return typeof x === 'string' || x instanceof String
@@ -9,52 +12,48 @@ function where (socket) {
 }
 
 function isValid (allow, suspect) {
-  console.log('ALLOW', allow)
-  suspect = isString(suspect) ? Buffer.from(suspect, 'hex') : suspect
+  suspect = Buffer.isBuffer(suspect) ? suspect : Buffer.from(suspect, 'hex')
   return allow.some(function (hash) {
-    hash = isString(hash) ? Buffer.from(hash, 'hex') : hash
     return hash.equals(suspect)
   })
 }
 
-// allow: String | Buffer | String[]
-//   schema:: [ sha512(user + ':' + password), ... ]
-// onauth: Function
-// opts.that: this
-// opts.maxTries: 3
-function makeGate (allow, opts, onauth) {
+function netGate (allow, opts, onauth) {
   if (typeof opts === 'function') {
     onauth = opts
     opts = {}
   }
 
-  if (!allow || !onauth) throw Error('allow \'am')
-console.log('ALLOW', allow)
+  if (!allow || !onauth) throw Error('missing arguments')
+
   if (isString(allow) || Buffer.isBuffer(allow)) allow = JSON.parse(allow)
   if (!opts) opts = {}
+
+  opts.maxTries = opts.maxTries || 3
+
   var invalids = {}
   var blacklist = []
+  var allow = allow.map(function (hash) {
+    return Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex')
+  })
 
-  // designed to be the very first connection handler of a net.Server instance
-  // onauth(socket) callback is only called if the socket could be authenticated
   function gate (socket) {
-    if (socket.bytesRead) return
-
     var loc = where(socket)
-    if (blacklist.includes(loc)) return
+    if (socket.bytesRead || blacklist.includes(loc)) return
 
-    var suspect = socket.read(64)  // expecting: sha512(user + ':' + password)
-console.log('ALLOW', allow)
-    if (!isValid(allow, suspect)) {
-      if (invalids.hasOwnProperty(loc)) invalids[loc]++
-      else invalids[loc] = 1
-      if (invalids[loc] >= opts.maxTries) blacklist.push(loc)
-      return
-    }
-    return onauth.call(this, socket)
+    socket.once('readable', function () {
+      var suspect = socket.read(64)  // expecting: sha512(user + ':' + password)
+      if (!isValid(allow, suspect)) {
+        if (invalids.hasOwnProperty(loc)) invalids[loc]++
+        else invalids[loc] = 1
+        if (invalids[loc] >= opts.maxTries) blacklist.push(loc)
+      } else {
+        onauth(socket)
+      }
+    })
   }
 
   return gate
 }
 
-module.exports = makeGate
+module.exports = netGate
