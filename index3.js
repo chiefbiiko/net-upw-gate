@@ -11,6 +11,8 @@ var EC = require('elliptic').ec
 
 var ec = new EC('curve25519')
 
+var TRUE_BUF = Buffer.from([ 0x01 ])
+
 function sha512 (buf) {
   return crypto.createHash('sha512').update(buf).digest()
 }
@@ -37,7 +39,7 @@ function netGate (allow, opts, onauth) {
 
   // default options
   if (!opts) opts = {}
-  opts.auth = opts.auth || false
+  opts.auth = opts.auth || true
   opts.maxTries = opts.maxTries || 3
   opts.cipherAlgorithm = opts.cipherAlgorithm || 'aes256'
 
@@ -84,6 +86,14 @@ function netGate (allow, opts, onauth) {
         encrypt = crypto.createCipher(opts.cipherAlgorithm, nonce)
         decrypt = crypto.createDecipher(opts.cipherAlgorithm, nonce)
         decrypt.setAutoPadding(false)
+        // indicate whether authentication is required for this server
+        if (opts.auth) {
+          socket.write(TRUE_BUF)
+        } else {
+          console.log('CRYPTO ONLY..!!!!')
+          socket.removeListener('readable', readable)
+          onauth(pumpify(encrypt, socket, decrypt))
+        }
       } else if (numReadables === 2) { // case authentication
         // expecting: sha512(user + ':' + password)
         var suspect = socket.read(64)
@@ -102,10 +112,11 @@ function netGate (allow, opts, onauth) {
             console.log('AUTHENTICATED!!!!!!!')
             onauth(pumpify(encrypt, socket, decrypt))
           }
-          // once we got pubkey and upw forget the readable handler
-          socket.removeListener('readable', readable)
         })
+        // decrypting the suspect
         decrypt.write(suspect)
+        // once we got pubkey and upw forget the readable handler
+        socket.removeListener('readable', readable)
       }
     })
 
@@ -123,22 +134,41 @@ function clientEstablish (socket, upw, opts) {
   var pubkey = Buffer.from(keypair.getPublic('binary'))
   // sending client's pubkey
   socket.write(pubkey)
+  // callback counter
+  var numReadables = 0
   // registering a one-time readable handler
-  socket.once('readable', function () {
-    // getting the server's pubkey
-    var otherPubkey = socket.read(32)
-    // computing the shared secret
-    var shared = keypair.derive(ec.keyFromPublic(otherPubkey).getPublic())
-    // hashing the shared secret to a nonce 4 use with symmetric encryption
-    var nonce = sha512(shared.toString(16))
-    console.log('CLIENT NONCE', nonce)
-    // binding en/decryption to the socket
-    var encrypt = crypto.createCipher(opts.cipherAlgorithm, nonce)
-    var decrypt = crypto.createDecipher(opts.cipherAlgorithm, nonce)
-    socket = pumpify(encrypt, socket, decrypt)
-    // authentication
-    console.log('UPW', upw, upw.length)
-    socket.write(upw)
+  socket.on('readable', function onreadable () {
+    ++numReadables
+    if (numReadables === 1) {
+      // getting the server's pubkey
+      var otherPubkey = socket.read(32)
+      // computing the shared secret
+      var shared = keypair.derive(ec.keyFromPublic(otherPubkey).getPublic())
+      // hashing the shared secret to a nonce 4 use with symmetric encryption
+      var nonce = sha512(shared.toString(16))
+      console.log('CLIENT NONCE', nonce)
+      // binding en/decryption to the socket
+      var encrypt = crypto.createCipher(opts.cipherAlgorithm, nonce)
+      var decrypt = crypto.createDecipher(opts.cipherAlgorithm, nonce)
+      decrypt.setAutoPadding(false)
+      socket = pumpify(encrypt, socket, decrypt)
+      // // authentication
+      // console.log('UPW', upw, upw.length)
+      // socket.write(upw)
+      console.log('LEFTOVA', socket.read(1))
+    } else if (numReadables === 2) {
+      // check whether server wants authentication
+      var flag = socket.read(1)
+      console.log('FLAG', flag)
+      if (flag.equals(TRUE_BUF)) {
+        // authentication
+        console.log('UPW', upw, upw.length)
+        socket.write(upw)
+      } else {
+        console.log('REMOVING ONREADABLE')
+        socket.removeListener('readable', onreadable)
+      }
+    }
   })
 }
 

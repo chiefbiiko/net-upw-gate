@@ -5,8 +5,8 @@ var EC = require('elliptic').ec
 var ec = new EC('curve25519')
 
 var netGate = require('./index')
-var ellGate = require('./index2').createGate
-var clientEstablish = require('./index2').clientEstablish
+var ellGate = require('./index3').createGate
+var clientEstablish = require('./index3').clientEstablish
 
 function sha512 (buf) {
   return crypto.createHash('sha512').update(buf).digest()
